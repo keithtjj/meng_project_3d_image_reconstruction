@@ -223,5 +223,6 @@ __marimo__/
 models/
 results/
 nscenes/
+cache/
 *.png
 *.jpg

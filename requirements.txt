@@ -1,0 +1,10 @@
+# Core pipeline
+torch>=2.1
+transformers>=4.45
+pillow>=10.1
+numpy>=1.24
+matplotlib>=3.6
+
+# nuScenes integration (only needed for run_nuscenes.py / segdepth.nusc)
+nuscenes-devkit>=1.1.11
+pyquaternion>=0.9.9
