@@ -1,14 +1,19 @@
 """
 analysis.py
 -----------
-Per-segment relative depth statistics.
+Per-segment depth statistics.
 
 compute_segment_depths() combines a panoptic segmentation map with a
 normalised closeness map (1 = nearest, 0 = farthest). For each segment it
 erodes the mask to discard boundary pixels, then reports the median, mean,
 spread and percentiles of closeness, a relative depth score
 (relative_depth = 1 - median closeness), the centroid and bounding box.
-Segments are ranked from nearest (depth_rank 1) to farthest.
+
+If a metric depth map is given, it also reports median/P10/P90 depth in metres
+over valid (non-saturated) pixels. Segments that are mostly saturated (sky,
+far background) are flagged metric_beyond_range.
+
+Segments are ranked from nearest (depth_rank 1) to farthest by closeness.
 """
 
 import numpy as np
@@ -18,7 +23,11 @@ from .utils import erode_mask
 
 
 def compute_segment_depths(seg_map, segments_info, id2label, closeness,
-                           erosion_px=2, min_pixels=50):
+                           erosion_px=2, min_pixels=50,
+                           metric_depth=None, metric_valid=None, min_valid_frac=0.5):
+    if metric_depth is not None and metric_valid is None:
+        metric_valid = np.isfinite(metric_depth)
+
     results = []
     for seg in segments_info:
         seg_id = seg["id"]
@@ -35,7 +44,7 @@ def compute_segment_depths(seg_map, segments_info, id2label, closeness,
         label = id2label.get(seg["label_id"], str(seg["label_id"]))
         median_c = float(np.median(values))
 
-        results.append({
+        entry = {
             "segment_id": int(seg_id),
             "label": label,
             "category": "stuff" if label.lower() in CITYSCAPES_STUFF else "thing",
@@ -49,7 +58,25 @@ def compute_segment_depths(seg_map, segments_info, id2label, closeness,
             "relative_depth": round(1.0 - median_c, 4),      # 0 = nearest
             "centroid_xy": [int(xs.mean()), int(ys.mean())],
             "bbox_xyxy": [int(xs.min()), int(ys.min()), int(xs.max()), int(ys.max())],
-        })
+        }
+
+        if metric_depth is not None:
+            sel = stat_mask & metric_valid
+            frac = float(sel.sum()) / float(stat_mask.sum())
+            entry["metric_valid_frac"] = round(frac, 3)
+            if frac >= min_valid_frac:
+                m = metric_depth[sel]
+                entry.update(
+                    metric_median_m=round(float(np.median(m)), 2),
+                    metric_p10_m=round(float(np.percentile(m, 10)), 2),
+                    metric_p90_m=round(float(np.percentile(m, 90)), 2),
+                    metric_beyond_range=False,
+                )
+            else:
+                entry.update(metric_median_m=None, metric_p10_m=None,
+                             metric_p90_m=None, metric_beyond_range=True)
+
+        results.append(entry)
 
     results.sort(key=lambda r: r["median_closeness"], reverse=True)
     for rank, r in enumerate(results, start=1):

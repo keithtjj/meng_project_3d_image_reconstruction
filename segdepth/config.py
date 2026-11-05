@@ -80,12 +80,31 @@ class AssocConfig:
     ground_weight: float = 50.0        # total weight of ground-plane anchors
     sigma_yaw_deg: float = 0.5
     yaw_steps_deg: tuple = (-0.5, -0.2, 0.2, 0.5)
+    # Parameter search (pattern search: step halves when no move improves E)
+    yaw_step_init_deg: float = 0.5
+    yaw_step_min_deg: float = 0.02
+    scale_step_init: float = 0.05      # step in log(a), i.e. about 5% scale change
+    shift_step_init: float = 0.02      # step in b (closeness units)
+    scale_step_min: float = 0.002
     # Which parameters the optimiser may refit
     fit_depth_scale: bool = True
     fit_sigma: bool = False            # refitting to own assignments causes overconfidence
     fit_yaw: bool = True
     # Optimisation
     cand_margin: float = 25.0          # only consider hypotheses within this many nats
-    max_iter: int = 15
-    tol: float = 1e-4
+    max_iter: int = 40
+    min_iter: int = 1
+    icm_max_sweeps: int = 10
     seed: int = 0
+
+    # Ordinal (relative-distance) consistency between points on different segments
+    use_ordinal: bool = True
+    ordinal_weight: float = 1.0        # lambda; 0 keeps the diagnostic but drops the term
+    ordinal_tau: float = 0.02          # softness of the order test (closeness units)
+    ordinal_eps: float = 0.1           # rate of depth-map ordering errors
+    ordinal_window_px: float = 150.0   # max column separation of a pair
+    ordinal_min_sep_abs: float = 1.0   # radar depths must differ by at least this (m) ...
+    ordinal_min_sep_rel: float = 0.1   # ... and by this fraction of the nearer depth
+    ordinal_adaptive: bool = True      # normalise differences by the radar-predicted separation
+    ordinal_tau_rel: float = 0.3       # softness in units of the predicted separation
+
